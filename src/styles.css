@@ -1,0 +1,145 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design system definition.
+ *
+ * The @theme inline block maps CSS custom properties to Tailwind utility
+ * classes (e.g. --color-primary -> bg-primary, text-primary).
+ *
+ * The :root and .dark blocks define the actual color values using oklch.
+ * All colors MUST use oklch format.
+ *
+ * To add a new semantic color:
+ * 1. Add the variable to :root (light value) and .dark (dark value)
+ * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --font-display: "Bebas Neue", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  --radius: 0.5rem;
+  --background: oklch(0.16 0.005 70);
+  --foreground: oklch(0.95 0.015 85);
+  --card: oklch(0.2 0.008 70);
+  --card-foreground: oklch(0.95 0.015 85);
+  --popover: oklch(0.2 0.008 70);
+  --popover-foreground: oklch(0.95 0.015 85);
+  --primary: oklch(0.78 0.09 82);
+  --primary-foreground: oklch(0.16 0.005 70);
+  --secondary: oklch(0.26 0.01 70);
+  --secondary-foreground: oklch(0.95 0.015 85);
+  --muted: oklch(0.24 0.008 70);
+  --muted-foreground: oklch(0.7 0.02 82);
+  --accent: oklch(0.78 0.09 82);
+  --accent-foreground: oklch(0.16 0.005 70);
+  --destructive: oklch(0.58 0.19 25);
+  --destructive-foreground: oklch(0.97 0.01 85);
+  --border: oklch(0.3 0.012 72);
+  --input: oklch(0.34 0.012 72);
+  --ring: oklch(0.78 0.09 82);
+
+  --gold-soft: oklch(0.86 0.06 88);
+  --gradient-gold: linear-gradient(
+    100deg,
+    oklch(0.7 0.08 72),
+    oklch(0.9 0.08 92),
+    oklch(0.72 0.09 78)
+  );
+  --gradient-stage: linear-gradient(180deg, oklch(0.15 0 0), oklch(0.12 0 0) 28rem);
+  --shadow-plate: 0 12px 28px -22px oklch(0 0 0 / 90%);
+  --shadow-glow: 0 0 28px -8px oklch(0.78 0.09 82 / 45%);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: 0.02em;
+    font-weight: 400;
+    text-transform: uppercase;
+  }
+}
+
+@utility text-gold {
+  background-image: var(--gradient-gold);
+  background-clip: text;
+  color: transparent;
+}
+
+@utility surface-plate {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-plate);
+}
+
+@utility section-label {
+  color: var(--primary);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+@utility stage-bg {
+  background-image: var(--gradient-stage);
+}
+
+@keyframes pulse-ring {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 oklch(0.78 0.09 82 / 45%);
+  }
+  50% {
+    box-shadow: 0 0 0 16px oklch(0.78 0.09 82 / 0%);
+  }
+}
+
+@utility mic-live {
+  animation: pulse-ring 1.4s ease-out infinite;
+}
+
