@@ -1,2 +1,14 @@
-# beats-by-say
-Beats by Say — generate beats from voice or text prompts using TriangleOS's Suno fork (ace-step-ui). Backend (TypeScript/Express), middleware, and Next.js frontend scaffold, plus Docker and lovable.app start script.
+# Beats by Say
+
+Describe or say the beat you hear and get an instrumental to record your own vocals over: a 16-step loop, a full
+arranged song, WAV and stems downloads. Free while we build it. Part of Triangle OS, operated by Finsec Associates
+Limited, trading as TriangleOS.
+
+```bash
+npm ci
+npm run dev
+npm run build && npx tsc --noEmit && npm test
+```
+
+Hosting is Cloudflare Pages (project `beatsbysay`); sign-in and saved beats use the shared Triangle OS Supabase
+project. Merging to main deploys through `.github/workflows/deploy.yml`. See CLAUDE.md for the rules.
