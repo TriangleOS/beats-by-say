@@ -11,7 +11,8 @@ npm run build && npx tsc --noEmit && npm test
 ```
 
 Hosting is the Cloudflare Worker `beatsbysay`; sign-in and saved beats use the shared Triangle OS Supabase
-project. Merging to main deploys through `.github/workflows/deploy.yml`. See CLAUDE.md for the rules.
+project. Cloudflare Workers Builds deploys every push to main, as for Metarial and Lawbooks; server secrets live
+in the Worker's settings, not in GitHub. See CLAUDE.md for the rules.
 
 ## SayMaster
 
