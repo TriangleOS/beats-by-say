@@ -10,5 +10,5 @@ npm run dev
 npm run build && npx tsc --noEmit && npm test
 ```
 
-Hosting is Cloudflare Pages (project `beatsbysay`); sign-in and saved beats use the shared Triangle OS Supabase
+Hosting is the Cloudflare Worker `beatsbysay`; sign-in and saved beats use the shared Triangle OS Supabase
 project. Merging to main deploys through `.github/workflows/deploy.yml`. See CLAUDE.md for the rules.

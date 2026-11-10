@@ -5,8 +5,8 @@ import tailwindcss from "@tailwindcss/vite";
 import tsConfigPaths from "vite-tsconfig-paths";
 import { nitro } from "nitro/vite";
 
-// Builds a Cloudflare Pages site: static files are served as assets, and only
-// server routes and server functions run in its Functions worker.
+// Builds a Cloudflare Worker named `beatsbysay` (same setup as Metarial and Lawbooks): static files are
+// served as assets, and only server routes and server functions run in the Worker.
 export default defineConfig(({ command, mode }) => {
   // Server code reads VITE_* values through import.meta.env, so inline them for both bundles.
   const env = loadEnv(mode, process.cwd(), "VITE_");
@@ -33,10 +33,13 @@ export default defineConfig(({ command, mode }) => {
       ...(command === "build"
         ? [
             nitro({
-              // Cloudflare Pages with a Functions worker: free plan, and the same API token as the
-              // other Triangle OS Pages sites can deploy it.
-              preset: "cloudflare-pages",
-              cloudflare: { nodeCompat: true },
+              preset: "cloudflare-module",
+              cloudflare: {
+                nodeCompat: true,
+                deployConfig: true,
+                // keep_vars: secrets and vars set in the Worker's settings survive each deploy.
+                wrangler: { name: "beatsbysay", keep_vars: true },
+              },
             }),
           ]
         : []),
