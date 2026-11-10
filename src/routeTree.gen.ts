@@ -16,6 +16,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DistributionRouteImport } from './routes/distribution'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MarketplaceRouteImport } from './routes/marketplace'
+import { Route as MasteringRouteImport } from './routes/mastering'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as RoadmapRouteImport } from './routes/roadmap'
 import { Route as RoyaltiesRouteImport } from './routes/royalties'
@@ -57,6 +58,11 @@ const LoginRoute = LoginRouteImport.update({
 const MarketplaceRoute = MarketplaceRouteImport.update({
   id: '/marketplace',
   path: '/marketplace',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MasteringRoute = MasteringRouteImport.update({
+  id: '/mastering',
+  path: '/mastering',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/distribution': typeof DistributionRoute
   '/login': typeof LoginRoute
   '/marketplace': typeof MarketplaceRoute
+  '/mastering': typeof MasteringRoute
   '/privacy': typeof PrivacyRoute
   '/roadmap': typeof RoadmapRoute
   '/royalties': typeof RoyaltiesRoute
@@ -119,6 +126,7 @@ export interface FileRoutesByTo {
   '/distribution': typeof DistributionRoute
   '/login': typeof LoginRoute
   '/marketplace': typeof MarketplaceRoute
+  '/mastering': typeof MasteringRoute
   '/privacy': typeof PrivacyRoute
   '/roadmap': typeof RoadmapRoute
   '/royalties': typeof RoyaltiesRoute
@@ -136,6 +144,7 @@ export interface FileRoutesById {
   '/distribution': typeof DistributionRoute
   '/login': typeof LoginRoute
   '/marketplace': typeof MarketplaceRoute
+  '/mastering': typeof MasteringRoute
   '/privacy': typeof PrivacyRoute
   '/roadmap': typeof RoadmapRoute
   '/royalties': typeof RoyaltiesRoute
@@ -154,6 +163,7 @@ export interface FileRouteTypes {
     | '/distribution'
     | '/login'
     | '/marketplace'
+    | '/mastering'
     | '/privacy'
     | '/roadmap'
     | '/royalties'
@@ -170,6 +180,7 @@ export interface FileRouteTypes {
     | '/distribution'
     | '/login'
     | '/marketplace'
+    | '/mastering'
     | '/privacy'
     | '/roadmap'
     | '/royalties'
@@ -186,6 +197,7 @@ export interface FileRouteTypes {
     | '/distribution'
     | '/login'
     | '/marketplace'
+    | '/mastering'
     | '/privacy'
     | '/roadmap'
     | '/royalties'
@@ -203,6 +215,7 @@ export interface RootRouteChildren {
   DistributionRoute: typeof DistributionRoute
   LoginRoute: typeof LoginRoute
   MarketplaceRoute: typeof MarketplaceRoute
+  MasteringRoute: typeof MasteringRoute
   PrivacyRoute: typeof PrivacyRoute
   RoadmapRoute: typeof RoadmapRoute
   RoyaltiesRoute: typeof RoyaltiesRoute
@@ -261,6 +274,13 @@ declare module '@tanstack/react-router' {
       path: '/marketplace'
       fullPath: '/marketplace'
       preLoaderRoute: typeof MarketplaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mastering': {
+      id: '/mastering'
+      path: '/mastering'
+      fullPath: '/mastering'
+      preLoaderRoute: typeof MasteringRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -323,6 +343,7 @@ const rootRouteChildren: RootRouteChildren = {
   DistributionRoute: DistributionRoute,
   LoginRoute: LoginRoute,
   MarketplaceRoute: MarketplaceRoute,
+  MasteringRoute: MasteringRoute,
   PrivacyRoute: PrivacyRoute,
   RoadmapRoute: RoadmapRoute,
   RoyaltiesRoute: RoyaltiesRoute,

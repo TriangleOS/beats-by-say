@@ -37,8 +37,9 @@ export default defineConfig(({ command, mode }) => {
               cloudflare: {
                 nodeCompat: true,
                 deployConfig: true,
-                // keep_vars: secrets and vars set in the Worker's settings survive each deploy.
-                wrangler: { name: "beatsbysay", keep_vars: true },
+                // keep_vars: secrets and vars set in the Worker's settings survive each deploy. The
+                // compatibility date is pinned so builds on different days run on the same runtime.
+                wrangler: { name: "beatsbysay", keep_vars: true, compatibility_date: "2026-10-01" },
               },
             }),
           ]

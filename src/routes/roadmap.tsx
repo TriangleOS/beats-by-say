@@ -14,7 +14,8 @@ const AVAILABLE = [
   ["Beat studio", "Type or say a brief and get a 16-step loop with drums, 808 bass, chords and a melody, played in your browser."],
   ["Voice briefs", "Speak your brief in Chrome, Edge or Safari. Your browser turns it into text."],
   ["Songwriter", "Turn a beat into a full arrangement (intro, verses, choruses, bridge, outro) and edit each section."],
-  ["Downloads", "Full-mix WAV, a full-song WAV, and a stems zip with an LMMS project file and an empty vocal track."],
+  ["Downloads", "Full-mix WAV, a stereo full-song WAV, and a stems zip with an LMMS project file and an empty vocal track."],
+  ["SayMaster", "Mixing and mastering in your browser: processed stems, a vocal-ready beat, and for finished songs a vocal chain with main, instrumental, acapella and TV versions in 24-bit and 16-bit WAV. Also masters audio made elsewhere."],
   ["Saved beats", "Every beat you make is saved to your account."],
 ] as const;
 

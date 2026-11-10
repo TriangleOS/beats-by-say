@@ -11,6 +11,8 @@ import { FALLBACK_SPEC, type BeatSpec } from "@/lib/beat-spec";
 import { generateBeat } from "@/lib/beats.functions";
 import { arrangeSong, defaultArrangement } from "@/lib/songwriter.functions";
 import {
+  MASTER_RATE,
+  renderSongRoleStems,
   renderSongWav,
   saveBlob,
   slugify,
@@ -18,6 +20,11 @@ import {
   type SongPart,
   type SongSection,
 } from "@/lib/render";
+import { SayMasterPanel } from "@/components/SayMasterPanel";
+import { VocalPicker } from "@/components/VocalPicker";
+import { dbToGain, peak, scale, sum } from "@/lib/saymaster/dsp";
+import { presetForGenre } from "@/lib/saymaster/presets";
+import { encodeWav } from "@/lib/saymaster/wav";
 
 export const Route = createFileRoute("/songwriter")({
   head: () => ({
@@ -62,6 +69,8 @@ function Songwriter() {
   const [working, setWorking] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [player] = useState(() => new BeatPlayer());
+  const [leads, setLeads] = useState<File[]>([]);
+  const [backs, setBacks] = useState<File[]>([]);
 
   useEffect(() => () => player.stop(), [player]);
 
@@ -319,6 +328,41 @@ function Songwriter() {
             <Plus className="h-3.5 w-3.5" /> Add section
           </Button>
         </section>
+
+        <SayMasterPanel
+          title="Master the full song"
+          description="Renders the whole arrangement as drums, bass and music stems, processes each one, mixes them with room for your vocal and masters the result. Record over the vocal-ready version; it lines up with the plain download."
+          action="Master the song"
+          defaultPreset={presetForGenre(spec.genre)}
+          disabled={sections.length === 0}
+          prepare={async (preset, onStage) => {
+            const stems = await renderSongRoleStems(spec, sections, (d, t) => onStage(`Rendering stems (${d}/${t})`));
+            // Unprocessed stems summed, brought down to a -1 dBFS peak so the comparison isn't clipped.
+            const raw = sum(stems.drums, stems.bass, stems.music);
+            const before = new Blob([encodeWav(scale(raw, dbToGain(-1) / Math.max(peak(raw), 1e-9)), MASTER_RATE, 16) as BlobPart], { type: "audio/wav" });
+            return { job: { kind: "beat", name: slugify(spec.title), sr: MASTER_RATE, preset, stems }, before };
+          }}
+        />
+
+        <SayMasterPanel
+          title="Finish the record with your vocals"
+          description="Recorded your vocals over this song? Add the lead and any backing or ad-lib takes (each exported from the start of the song). SayMaster cleans and compresses them, tames harsh S sounds, adds reverb and a delay in time with the beat, ducks the music only while you sing, and masters the song at release loudness. You get the main version, instrumental, acapella and TV mix, all mastered the same way."
+          action="Finish the record"
+          defaultPreset={presetForGenre(spec.genre)}
+          disabled={sections.length === 0 || leads.length === 0}
+          prepare={async (preset, onStage) => {
+            const { decodeFile } = await import("@/lib/saymaster/client");
+            onStage("Reading your vocals");
+            const leadAudio = await Promise.all(leads.map((f) => decodeFile(f, MASTER_RATE)));
+            const backAudio = await Promise.all(backs.map((f) => decodeFile(f, MASTER_RATE)));
+            const stems = await renderSongRoleStems(spec, sections, (d, t) => onStage(`Rendering stems (${d}/${t})`));
+            return {
+              job: { kind: "song", name: slugify(spec.title), sr: MASTER_RATE, preset, bpm: spec.bpm, stems, leads: leadAudio, backs: backAudio },
+            };
+          }}
+        >
+          <VocalPicker leads={leads} backs={backs} onLeads={setLeads} onBacks={setBacks} />
+        </SayMasterPanel>
       </div>
     </div>
   );

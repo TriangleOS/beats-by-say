@@ -17,6 +17,13 @@ Beats by Say, voice-first beat making for recording artists, part of Triangle OS
   Marketplace, distribution, royalties and a recorded-sound engine are planned. No "keep 100%", store counts,
   "no AI stigma", prices or fake partners. No "data never leaves the UK". Operator wording:
   "Finsec Associates Limited, trading as TriangleOS".
+- SayMaster (`src/lib/saymaster/`) is the mixing and mastering engine: pure TypeScript on Float32Arrays, run in a
+  Web Worker (`worker.ts`, started by `client.ts`), never on the server (the Worker's 10 ms CPU limit). Studio and
+  Songwriter render drums, bass and music groups (`renderRoleStems`, `renderSongRoleStems` in `src/lib/render.ts`)
+  and send them through `produceBeat`; song mode (`finishSong`) adds the artist's uploaded vocals; `/mastering`
+  masters uploads. Loudness is ITU-R BS.1770 (matches pyloudnorm) and the limiter is true-peak, so keep
+  `src/test/saymaster.test.ts` passing when touching the DSP. Copy says what it measurably does; no
+  "Grammy", "A-list" or "studio-grade guaranteed" claims.
 - Database changes go in a new file in `supabase/migrations/`; never edit an applied migration. The deploy workflow
   re-runs every migration on each deploy, so each file must be safe to run twice.
 
