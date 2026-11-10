@@ -24,18 +24,16 @@ Beats by Say, voice-first beat making for recording artists, part of Triangle OS
   masters uploads. Loudness is ITU-R BS.1770 (matches pyloudnorm) and the limiter is true-peak, so keep
   `src/test/saymaster.test.ts` passing when touching the DSP. Copy says what it measurably does; no
   "Grammy", "A-list" or "studio-grade guaranteed" claims.
-- Database changes go in a new file in `supabase/migrations/`; never edit an applied migration. The deploy workflow
-  re-runs every migration on each deploy, so each file must be safe to run twice.
+- Database changes go in a new file in `supabase/migrations/`; never edit an applied migration. Migrations are
+  applied to the shared project by hand (SQL editor or the Supabase connector), so keep each one safe to run twice.
 
 ## Deploying
 
-Deploys as the Cloudflare Worker `beatsbysay` (`npm run build`, then `npx wrangler deploy`). Every push to main
-runs `.github/workflows/deploy.yml`: `scripts/go-live.mjs pre` runs the migrations and adds sign-in redirect URLs,
-`wrangler deploy` publishes the Worker, then `scripts/go-live.mjs post` saves server secrets on the Worker (only
-when missing) and, when the `DOMAIN` repository variable is set, removes the old Lovable DNS records and attaches
-the domain to the Worker. Server secrets live in the Worker's settings, never in the repo. Repository secrets:
-`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `SUPABASE_ACCESS_TOKEN`, `GEMINI_API_KEY` (optional
-`TRIANGLE_LLM_URL`, `TRIANGLE_LLM_API_KEY`).
+Same as Metarial and Lawbooks: deploys as the Cloudflare Worker `beatsbysay` (`npm run build`, then
+`npx wrangler deploy`), built by Cloudflare Workers Builds from this repo on every push to main. No GitHub
+repository secrets. Server secrets (`GEMINI_API_KEY`, optional `TRIANGLE_LLM_URL` and `TRIANGLE_LLM_API_KEY`) are
+set in the Worker's settings in Cloudflare, never in the repo. The Supabase URL and publishable key are public and
+come from `.env` at build time. The custom domain is attached in the Worker's Domains & Routes settings.
 
 ## Checks before pushing
 
