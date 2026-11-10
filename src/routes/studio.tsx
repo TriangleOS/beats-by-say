@@ -7,7 +7,10 @@ import { Button } from "@/components/ui/button";
 import { generateBeat } from "@/lib/beats.functions";
 import { BeatPlayer } from "@/lib/audio-engine";
 import type { BeatSpec } from "@/lib/beat-spec";
-import { renderMixWav, renderStemsZip, saveBlob, slugify } from "@/lib/render";
+import { MASTER_RATE, renderMixArrays, renderMixWav, renderRoleStems, renderStemsZip, saveBlob, slugify } from "@/lib/render";
+import { SayMasterPanel } from "@/components/SayMasterPanel";
+import { presetForGenre } from "@/lib/saymaster/presets";
+import { encodeWav } from "@/lib/saymaster/wav";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { listen } from "@/lib/speech";
@@ -341,6 +344,24 @@ function Studio() {
               ))}
             </div>
           </section>
+        )}
+
+        {spec && (
+          <SayMasterPanel
+            title="Studio-quality master"
+            description="Each part of the beat is processed on its own (punchier drums, a mono low end that still reads on phone speakers, cleaner chords), then mixed with room left for your vocal and mastered with a true-peak limiter. You get a vocal-ready beat to record over, a clean version, the processed stems and a measurement report."
+            action="Master this beat"
+            defaultPreset={presetForGenre(spec.genre)}
+            prepare={async (preset, onStage) => {
+              onStage("Rendering stems");
+              const stems = await renderRoleStems(spec, 8);
+              const mix = await renderMixArrays(spec, 8);
+              return {
+                before: new Blob([encodeWav(mix, MASTER_RATE, 16) as BlobPart], { type: "audio/wav" }),
+                job: { kind: "beat", name: slugify(spec.title), sr: MASTER_RATE, preset, stems, reference: mix },
+              };
+            }}
+          />
         )}
 
         {library.length > 0 && (

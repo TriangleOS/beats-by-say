@@ -8,7 +8,7 @@ export { STEMS } from "./engine/dsp";
 
 function renderTrack(
   input: BeatSpec,
-  stem: StemName,
+  stem: StemName | readonly StemName[],
   bars: number,
   sampleRate = 44100,
 ): Promise<AudioBuffer> {
@@ -20,7 +20,7 @@ function renderTrack(
   // Stems render with halved effects so they stay usable in a DAW; the full
   // mix keeps the spec's exact settings.
   const fx =
-    stem === "full-mix"
+    stem === "full-mix" || Array.isArray(stem)
       ? spec.fx
       : { reverb: spec.fx.reverb * 0.5, delay: spec.fx.delay * 0.5, drive: spec.fx.drive * 0.5 };
   const chain = createMasterChain(ctx, fx, stepDur);
@@ -165,7 +165,7 @@ function sectionSpec(spec: BeatSpec, parts: Record<SongPart, boolean>): BeatSpec
   };
 }
 
-function encodeWavFromFloat(data: Float32Array, sampleRate: number): Uint8Array {
+function encodeWavFromFloat(data: Float32Array, sampleRate: number, channels = 1): Uint8Array {
   const bytes = new ArrayBuffer(44 + data.length * 2);
   const view = new DataView(bytes);
   const writeStr = (offset: number, s: string) => {
@@ -177,10 +177,10 @@ function encodeWavFromFloat(data: Float32Array, sampleRate: number): Uint8Array 
   writeStr(12, "fmt ");
   view.setUint32(16, 16, true);
   view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
+  view.setUint16(22, channels, true);
   view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true);
-  view.setUint16(32, 2, true);
+  view.setUint32(28, sampleRate * 2 * channels, true);
+  view.setUint16(32, 2 * channels, true);
   view.setUint16(34, 16, true);
   writeStr(36, "data");
   view.setUint32(40, data.length * 2, true);
@@ -198,35 +198,102 @@ export function songLengthSeconds(spec: BeatSpec, sections: SongSection[]) {
   return sections.reduce((total, s) => total + s.bars * barDur, 0);
 }
 
-/** Renders a full arranged song (intro, verses, choruses...) as one WAV file. */
+/**
+ * Renders an arranged song section by section into one stereo buffer pair. Each section's reverb and
+ * delay tail is overlapped into the next section rather than cut off.
+ */
+async function renderSong(
+  input: BeatSpec,
+  sections: SongSection[],
+  stem: StemName | readonly StemName[],
+  sampleRate: number,
+  onSection?: () => void,
+): Promise<[Float32Array, Float32Array]> {
+  const spec = normalizeSpec(input);
+  const stepDur = 60 / spec.bpm / 4;
+  const starts: number[] = [];
+  let cursor = 0;
+  for (const s of sections) {
+    starts.push(cursor);
+    cursor += Math.round(s.bars * 16 * stepDur * sampleRate);
+  }
+  const tail = Math.round(2.5 * sampleRate);
+  const out: [Float32Array, Float32Array] = [new Float32Array(cursor + tail), new Float32Array(cursor + tail)];
+  for (let i = 0; i < sections.length; i++) {
+    const buffer = await renderTrack(sectionSpec(spec, sections[i]!.parts), stem, sections[i]!.bars, sampleRate);
+    for (let c = 0; c < 2; c++) {
+      const src = buffer.getChannelData(Math.min(c, buffer.numberOfChannels - 1));
+      const dst = out[c]!;
+      const at = starts[i]!;
+      for (let k = 0; k < src.length && at + k < dst.length; k++) dst[at + k]! += src[k]!;
+    }
+    onSection?.();
+  }
+  // trim the last tail to where it actually dies away
+  let end = out[0].length;
+  while (end > cursor && Math.abs(out[0][end - 1]!) < 1e-5 && Math.abs(out[1][end - 1]!) < 1e-5) end--;
+  return [out[0].slice(0, end), out[1].slice(0, end)];
+}
+
+/** Renders a full arranged song (intro, verses, choruses...) as one stereo WAV file. */
 export async function renderSongWav(
   input: BeatSpec,
   sections: SongSection[],
   onProgress?: (done: number, total: number) => void,
 ): Promise<Blob> {
-  const spec = normalizeSpec(input);
-  const sampleRate = 44100;
-  const stepDur = 60 / spec.bpm / 4;
-  const chunks: Float32Array[] = [];
-  let total = 0;
-
-  for (let i = 0; i < sections.length; i++) {
-    const section = sections[i]!;
-    const buffer = await renderTrack(sectionSpec(spec, section.parts), "full-mix", section.bars, sampleRate);
-    const wanted = Math.round(section.bars * 16 * stepDur * sampleRate);
-    const source = buffer.getChannelData(0);
-    const slice = new Float32Array(wanted);
-    slice.set(source.subarray(0, Math.min(wanted, source.length)));
-    chunks.push(slice);
-    total += wanted;
-    onProgress?.(i + 1, sections.length);
+  let done = 0;
+  const [l, r] = await renderSong(input, sections, "full-mix", 44100, () => onProgress?.(++done, sections.length));
+  const interleaved = new Float32Array(l.length * 2);
+  for (let i = 0; i < l.length; i++) {
+    interleaved[i * 2] = l[i]!;
+    interleaved[i * 2 + 1] = r[i]!;
   }
+  return new Blob([encodeWavFromFloat(interleaved, 44100, 2) as BlobPart], { type: "audio/wav" });
+}
 
-  const out = new Float32Array(total);
-  let cursor = 0;
-  for (const chunk of chunks) {
-    out.set(chunk, cursor);
-    cursor += chunk.length;
+/* ---------------------------------------------------------------------------
+ * SayMaster: drums / bass / music stems for the studio-quality chain
+ * ------------------------------------------------------------------------- */
+
+export const ROLE_GROUPS = {
+  drums: ["kick", "snare", "clap", "hats", "open-hat", "perc"],
+  bass: ["bass"],
+  music: ["chords", "melody"],
+} as const satisfies Record<string, readonly StemName[]>;
+export type RoleName = keyof typeof ROLE_GROUPS;
+export type RoleAudio = Record<RoleName, [Float32Array, Float32Array]>;
+export const MASTER_RATE = 44100;
+
+const channels = (b: AudioBuffer): [Float32Array, Float32Array] => [
+  b.getChannelData(0).slice(),
+  b.getChannelData(Math.min(1, b.numberOfChannels - 1)).slice(),
+];
+
+/** Renders a beat loop as drums, bass and music stems (full effects, so they sum to the mix). */
+export async function renderRoleStems(spec: BeatSpec, bars = 8): Promise<RoleAudio> {
+  const out = {} as RoleAudio;
+  for (const role of Object.keys(ROLE_GROUPS) as RoleName[]) {
+    out[role] = channels(await renderTrack(spec, ROLE_GROUPS[role], bars, MASTER_RATE));
   }
-  return new Blob([encodeWavFromFloat(out, sampleRate) as BlobPart], { type: "audio/wav" });
+  return out;
+}
+
+/** Renders a whole arranged song as drums, bass and music stems. */
+export async function renderSongRoleStems(
+  spec: BeatSpec,
+  sections: SongSection[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<RoleAudio> {
+  const out = {} as RoleAudio;
+  const total = sections.length * 3;
+  let done = 0;
+  for (const role of Object.keys(ROLE_GROUPS) as RoleName[]) {
+    out[role] = await renderSong(spec, sections, ROLE_GROUPS[role], MASTER_RATE, () => onProgress?.(++done, total));
+  }
+  return out;
+}
+
+/** The plain full mix as stereo arrays, for before/after comparison. */
+export async function renderMixArrays(spec: BeatSpec, bars = 8): Promise<[Float32Array, Float32Array]> {
+  return channels(await renderTrack(spec, "full-mix", bars, MASTER_RATE));
 }

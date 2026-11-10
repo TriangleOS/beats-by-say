@@ -435,13 +435,15 @@ export function scheduleBar(
   ctx: BaseAudioContext,
   chain: MasterChain,
   spec: BeatSpec,
-  stem: StemName,
+  stem: StemName | readonly StemName[],
   bar: number,
   t0: number,
   stepDur: number,
   lastBassFreq: number | null,
 ): number | null {
-  const wants = (part: StemName) => stem === "full-mix" || stem === part;
+  // A list of stems renders that group together (SayMaster renders drums, bass and music groups).
+  const wants = (part: StemName) =>
+    Array.isArray(stem) ? stem.includes(part) : stem === "full-mix" || stem === part;
   const barDur = stepDur * 16;
 
   if (stem !== "vocal-guide") {
