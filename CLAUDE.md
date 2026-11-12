@@ -10,7 +10,8 @@ Beats by Say, voice-first beat making for recording artists, part of Triangle OS
 - The project is shared, so every table starts with `beatsbysay_`. Never add triggers on `auth.users`; the artist
   name lives in the user's own metadata. Types are hand-written in `src/integrations/supabase/types.ts`.
 - The browser never holds AI keys. Beat sheets and arrangements come from `chatCompletion()` in
-  `src/lib/llm.server.ts` (Triangle LLM first, then free Gemini), behind a signed-in check
+  `src/lib/llm.server.ts` (Triangle LLM first, then free Gemini, then keyless Workers AI through the Worker's
+  `AI` binding), behind a signed-in check
   (`src/lib/user.server.ts`). Audio is synthesised and rendered in the browser (`src/lib/engine/dsp.ts`).
   Voice briefs use the browser's speech recognition (`src/lib/speech.ts`).
 - Say plainly what works: studio, voice briefs, songwriter, WAV/stems downloads and saved beats are free.
@@ -31,8 +32,8 @@ Beats by Say, voice-first beat making for recording artists, part of Triangle OS
 
 Same as Metarial and Lawbooks: deploys as the Cloudflare Worker `beatsbysay` (`npm run build`, then
 `npx wrangler deploy`), built by Cloudflare Workers Builds from this repo on every push to main. No GitHub
-repository secrets. Server secrets (`GEMINI_API_KEY`, optional `TRIANGLE_LLM_URL` and `TRIANGLE_LLM_API_KEY`) are
-set in the Worker's settings in Cloudflare, never in the repo. The Supabase URL and publishable key are public and
+repository secrets. Server secrets (optional `GEMINI_API_KEY`, `TRIANGLE_LLM_URL` and `TRIANGLE_LLM_API_KEY`) are set in
+the Worker's settings in Cloudflare, never in the repo; without them the site uses Workers AI. The Supabase URL and publishable key are public and
 come from `.env` at build time. The custom domain is attached in the Worker's Domains & Routes settings.
 
 ## Checks before pushing
