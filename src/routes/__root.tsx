@@ -27,6 +27,8 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "color-scheme", content: "dark" },
+      { name: "theme-color", content: "#0f0d0b" },
       { title: "Beats by Say" },
       { name: "description", content: "Describe or say the beat you hear, and get an instrumental to record your own vocals over. Free while we build it." },
       { name: "author", content: "Beats by Say" },
