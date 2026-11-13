@@ -88,6 +88,13 @@
     border-color: var(--color-border);
   }
 
+  html {
+    /* Dark native controls: without this, <select> option lists, file pickers and
+       scrollbars render white, and their light text becomes unreadable. */
+    color-scheme: dark;
+    background-color: var(--color-background);
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
