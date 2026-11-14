@@ -151,6 +151,10 @@ def separate(take_id: str):
     with torch.no_grad():
         out = apply_model(separator, ((wav - mean) / std)[None].to("cuda"), shifts=1, split=True, overlap=0.25)[0]
     out = (out * std + mean).cpu().numpy()
+    # One shared trim keeps every stem under full scale (24-bit FLAC clips at 1.0) and the stems still sum to the mix.
+    peak = float(np.abs(out).max())
+    if peak > 0.98:
+        out *= 0.98 / peak
     files = []
     for name, stem in zip(separator.sources, out):
         p = os.path.join(OUT, f"{take_id}-{name}.flac")
