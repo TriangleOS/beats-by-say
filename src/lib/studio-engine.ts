@@ -58,7 +58,7 @@ export function engineBrief(
  * Hugging Face account have about 120 s a day, so longer beats get one take instead of two.
  */
 export function gpuRequest(seconds: number, takes: number, plan = true) {
-  return Math.min(150, Math.floor(25 + seconds * 0.45 * Math.max(1, takes) + (plan ? 25 : 0)));
+  return Math.min(150, Math.floor(35 + seconds * 0.45 * Math.max(1, takes) + (plan ? 25 : 0)));
 }
 export function takesFor(seconds: number, budget = 115) {
   return gpuRequest(seconds, 2) <= budget ? 2 : 1;

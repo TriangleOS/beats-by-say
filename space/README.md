@@ -9,7 +9,7 @@ python_version: 3.11
 app_file: app.py
 pinned: false
 license: mit
-short_description: Instrumentals (ACE-Step 1.5) and stems (HT-Demucs) for beatsbysay.com
+short_description: ACE-Step 1.5 beats and Demucs stems for beatsbysay.com
 models:
   - ACE-Step/Ace-Step1.5
   - ACE-Step/acestep-5Hz-lm-1.7B

@@ -15,6 +15,7 @@ import uuid
 # The upstream package wraps its own functions in a fixed 180 s GPU request when SPACE_ID is set.
 # Hide it while importing so only the right-sized requests below apply.
 _space_id = os.environ.pop("SPACE_ID", None)
+os.environ.setdefault("ZEROGPU", "1")  # keeps the planner's ZeroGPU code paths without SPACE_ID
 import spaces  # noqa: E402  (must come before torch)
 import torch  # noqa: E402
 import numpy as np  # noqa: E402
@@ -46,6 +47,8 @@ if not ok:
     raise RuntimeError(f"ACE-Step failed to load: {status}")
 
 lm = LLMHandler()
+# The flash-attn3 kernels it prefers have no build for ZeroGPU's Blackwell GPUs ("no kernel image"); SDPA runs everywhere.
+lm.get_best_attn_implementation = lambda: "sdpa"
 lm_status, lm_ok = lm.initialize(
     checkpoint_dir=dit._get_checkpoint_dir(), lm_model_path=LM_MODEL, backend="pt",
     device="auto", offload_to_cpu=False, dtype=dit.dtype,
@@ -73,7 +76,7 @@ def _clean(old_seconds: int = 3 * 3600) -> None:
 
 
 def _generate_seconds(caption, bpm, key, seconds, takes, plan, seed):
-    return int(min(150, 25 + float(seconds) * 0.45 * max(1, int(takes)) + (25 if plan else 0)))
+    return int(min(150, 35 + float(seconds) * 0.45 * max(1, int(takes)) + (25 if plan else 0)))
 
 
 @spaces.GPU(duration=_generate_seconds)
