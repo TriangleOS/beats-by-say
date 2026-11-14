@@ -20,7 +20,6 @@ vector-quantize-pytorch>=1.27.15
 peft>=0.7.0
 lightning>=2.0.0
 triton>=3.0.0
-kernels
 xxhash
 spaces
 huggingface_hub>=0.20.0
