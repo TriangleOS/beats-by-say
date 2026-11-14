@@ -19,7 +19,7 @@ Beats by Say, voice-first beat making for recording artists, part of Triangle OS
   `space/`, URL in `VITE_ENGINE_SPACE_URL`). The browser calls the Space directly (Gradio queue API), so GPU time
   comes from each visitor's own free Hugging Face allowance and nothing runs in the Worker; SayMaster then mixes
   and masters in the browser. No paid APIs. Keep the GPU request sizing in `gpuRequest()` and
-  `space/app.py` in step (visitors without an HF account have about 120 s a day).
+  `space/app.py` in step (sized from measured run times; visitors without an HF account get a few minutes a day).
 - Say plainly what works: studio, voice briefs, songwriter, WAV/stems downloads and saved beats are free.
   Marketplace, distribution and royalties are planned. The studio engine's free GPU time is limited
   per connection per day; say so. No "keep 100%", store counts,
