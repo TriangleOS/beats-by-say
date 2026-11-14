@@ -7,8 +7,18 @@ import { Button } from "@/components/ui/button";
 import { generateBeat } from "@/lib/beats.functions";
 import { BeatPlayer } from "@/lib/audio-engine";
 import type { BeatSpec } from "@/lib/beat-spec";
-import { MASTER_RATE, renderMixArrays, renderMixWav, renderRoleStems, renderStemsZip, saveBlob, slugify } from "@/lib/render";
+import {
+  MASTER_RATE,
+  renderMixArrays,
+  renderMixWav,
+  renderRoleStems,
+  renderStemsZip,
+  saveBlob,
+  slugify,
+} from "@/lib/render";
 import { SayMasterPanel } from "@/components/SayMasterPanel";
+import { StudioEnginePanel } from "@/components/StudioEnginePanel";
+import { engineReady } from "@/lib/studio-engine";
 import { presetForGenre } from "@/lib/saymaster/presets";
 import { encodeWav } from "@/lib/saymaster/wav";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,6 +47,7 @@ export const Route = createFileRoute("/studio")({
 });
 
 type SavedBeat = { id: string; prompt: string; spec: BeatSpec };
+type Engine = "studio" | "synth";
 
 const IDEAS = [
   "Dark UK drill, 142 bpm, sliding 808s, minor key, sparse",
@@ -57,11 +68,18 @@ function Studio() {
   const [step, setStep] = useState(-1);
   const [library, setLibrary] = useState<SavedBeat[]>([]);
   const [exporting, setExporting] = useState<"wav" | "stems" | null>(null);
+  const [engine, setEngine] = useState<Engine>("studio");
+  const [studioJob, setStudioJob] = useState<{ id: number; prompt: string } | null>(null);
 
   const playerRef = useRef<BeatPlayer | null>(null);
   const stopListeningRef = useRef<(() => void) | null>(null);
 
   useEffect(() => () => playerRef.current?.stop(), []);
+
+  useEffect(() => {
+    // Wakes the engine Space if it is asleep, so it is ready by the time the beat sheet is written.
+    void engineReady();
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -100,6 +118,8 @@ function Studio() {
     try {
       const result = await generate({ data: { prompt: text.trim(), token: session.access_token } });
       setSpec(result.spec);
+      const studio = engine === "studio";
+      setStudioJob(studio ? { id: Date.now(), prompt: text.trim() } : null);
       const { error } = await supabase.from("beatsbysay_beats").insert({
         user_id: user.id,
         title: result.spec.title,
@@ -112,7 +132,11 @@ function Studio() {
       });
       if (error) toast.error(`Made the beat, but couldn't save it: ${error.message}`);
       else await loadLibrary();
-      toast.success(`"${result.spec.title}" is ready.`);
+      toast.success(
+        studio
+          ? `"${result.spec.title}": the sketch is ready, the studio takes are recording.`
+          : `"${result.spec.title}" is ready.`,
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Something went wrong.");
     } finally {
@@ -171,7 +195,6 @@ function Studio() {
 
   return (
     <div>
-
       <div className="mx-auto max-w-7xl px-4 py-10 pb-24 sm:px-6">
         <p className="section-label">New instrumental</p>
         <h1 className="mt-2 text-3xl md:text-5xl">
@@ -182,8 +205,11 @@ function Studio() {
         </p>
         {!user && (
           <p className="mt-4 max-w-xl border border-primary/40 bg-primary/5 p-3 text-sm">
-            <Link to="/login" className="text-primary underline">Sign in or create a free account</Link> to make
-            and save beats. Voice briefs work in Chrome, Edge and Safari; anywhere else, type your brief.
+            <Link to="/login" className="text-primary underline">
+              Sign in or create a free account
+            </Link>{" "}
+            to make and save beats. Voice briefs work in Chrome, Edge and Safari; anywhere else,
+            type your brief.
           </p>
         )}
 
@@ -198,9 +224,7 @@ function Studio() {
               aria-label={recording ? "Stop recording" : "Start voice command"}
             >
               {recording ? <Square className="h-6 w-6" /> : <Mic className="h-7 w-7" />}
-              <span className="text-[11px] uppercase">
-                {recording ? "Stop" : "Speak"}
-              </span>
+              <span className="text-[11px] uppercase">{recording ? "Stop" : "Speak"}</span>
             </Button>
 
             <div className="flex-1">
@@ -225,6 +249,31 @@ function Studio() {
                   )}
                   {loading ? "Building..." : "Generate beat"}
                 </Button>
+                {
+                  <div
+                    className="flex rounded-sm border border-border text-xs"
+                    role="radiogroup"
+                    aria-label="Engine"
+                  >
+                    {(
+                      [
+                        ["studio", "Studio engine"],
+                        ["synth", "Synth sketch"],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        role="radio"
+                        aria-checked={engine === value}
+                        onClick={() => setEngine(value)}
+                        className={`px-3 py-2 ${engine === value ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                }
                 {IDEAS.map((idea) => (
                   <Button
                     key={idea}
@@ -285,27 +334,26 @@ function Studio() {
                     setExporting("stems");
                     try {
                       saveBlob(await renderStemsZip(spec), `${slugify(spec.title)}-stems.zip`);
-                      toast.success("Stems downloaded with an LMMS project file and an empty vocal track.");
+                      toast.success(
+                        "Stems downloaded with an LMMS project file and an empty vocal track.",
+                      );
                     } finally {
                       setExporting(null);
                     }
                   }}
                   variant="outline"
                 >
-                  <Download className="h-4 w-4" /> {exporting === "stems" ? "Rendering..." : "Stems + LMMS"}
+                  <Download className="h-4 w-4" />{" "}
+                  {exporting === "stems" ? "Rendering..." : "Stems + LMMS"}
                 </Button>
-                <Button
-                  type="button"
-                  onClick={() => download(spec)}
-                  variant="outline"
-                >
+                <Button type="button" onClick={() => download(spec)} variant="outline">
                   <Download className="h-4 w-4" /> Beat sheet
                 </Button>
               </div>
             </div>
 
             <div className="mt-6 space-y-2">
-                  {(
+              {(
                 [
                   ["Kick", spec.kick],
                   ["Snare", spec.snare],
@@ -321,11 +369,14 @@ function Studio() {
                   <span className="w-20 shrink-0 text-xs text-muted-foreground uppercase">
                     {label}
                   </span>
-                  <div className="grid flex-1 gap-1" style={{ gridTemplateColumns: "repeat(16, minmax(0, 1fr))" }}>
+                  <div
+                    className="grid flex-1 gap-1"
+                    style={{ gridTemplateColumns: "repeat(16, minmax(0, 1fr))" }}
+                  >
                     {Array.from({ length: 16 }).map((_, i) => (
                       <span
                         key={i}
-                         className={`h-6 border ${pattern[i] === "x" ? "border-primary/60 bg-primary/70" : "border-border bg-background/50"} ${step === i ? "outline outline-primary" : ""}`}
+                        className={`h-6 border ${pattern[i] === "x" ? "border-primary/60 bg-primary/70" : "border-border bg-background/50"} ${step === i ? "outline outline-primary" : ""}`}
                       />
                     ))}
                   </div>
@@ -335,9 +386,9 @@ function Studio() {
 
             <div className="mt-5 flex flex-wrap gap-2">
               {spec.chordNotes.map((chord, i) => (
-                 <span
+                <span
                   key={i}
-                   className="rounded-sm border border-border bg-background px-3 py-1.5 font-mono text-xs text-muted-foreground"
+                  className="rounded-sm border border-border bg-background px-3 py-1.5 font-mono text-xs text-muted-foreground"
                 >
                   Bar {i + 1}: {chord}
                 </span>
@@ -346,9 +397,11 @@ function Studio() {
           </section>
         )}
 
+        {spec && studioJob && <StudioEnginePanel job={studioJob} spec={spec} />}
+
         {spec && (
           <SayMasterPanel
-            title="Studio-quality master"
+            title={studioJob ? "Master the synth sketch" : "Studio-quality master"}
             description="Each part of the beat is processed on its own (punchier drums, a mono low end that still reads on phone speakers, cleaner chords), then mixed with room left for your vocal and mastered with a true-peak limiter. You get a vocal-ready beat to record over, a clean version, the processed stems and a measurement report."
             action="Master this beat"
             defaultPreset={presetForGenre(spec.genre)}
@@ -357,8 +410,17 @@ function Studio() {
               const stems = await renderRoleStems(spec, 8);
               const mix = await renderMixArrays(spec, 8);
               return {
-                before: new Blob([encodeWav(mix, MASTER_RATE, 16) as BlobPart], { type: "audio/wav" }),
-                job: { kind: "beat", name: slugify(spec.title), sr: MASTER_RATE, preset, stems, reference: mix },
+                before: new Blob([encodeWav(mix, MASTER_RATE, 16) as BlobPart], {
+                  type: "audio/wav",
+                }),
+                job: {
+                  kind: "beat",
+                  name: slugify(spec.title),
+                  sr: MASTER_RATE,
+                  preset,
+                  stems,
+                  reference: mix,
+                },
               };
             }}
           />
@@ -366,33 +428,39 @@ function Studio() {
 
         {library.length > 0 && (
           <section className="mt-10">
-             <p className="section-label">Saved to your account</p><h2 className="mt-2 text-2xl">Your beat library</h2>
+            <p className="section-label">Saved to your account</p>
+            <h2 className="mt-2 text-2xl">Your beat library</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {library.map((item) => (
-                 <div key={item.id} className="border border-border bg-card p-4">
+                <div key={item.id} className="border border-border bg-card p-4">
                   <p className="text-lg">{item.spec.title}</p>
                   <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.prompt}</p>
                   <p className="mt-2 text-[11px] text-primary uppercase">
                     {item.spec.bpm} BPM · {item.spec.key}
                   </p>
                   <div className="mt-3 flex gap-2">
-                     <Button
+                    <Button
                       type="button"
                       onClick={() => {
                         setSpec(item.spec);
+                        setStudioJob(null);
                         void togglePlay(item.spec);
                       }}
-                       variant="outline" size="sm" className="border-primary/50 text-primary hover:text-primary"
+                      variant="outline"
+                      size="sm"
+                      className="border-primary/50 text-primary hover:text-primary"
                     >
                       <Play className="h-3.5 w-3.5" /> Play
-                     </Button>
-                     <Button
+                    </Button>
+                    <Button
                       type="button"
                       onClick={() => void removeBeat(item.id)}
-                       variant="outline" size="sm" className="text-muted-foreground"
+                      variant="outline"
+                      size="sm"
+                      className="text-muted-foreground"
                     >
                       <Trash2 className="h-3.5 w-3.5" /> Delete
-                     </Button>
+                    </Button>
                   </div>
                 </div>
               ))}
