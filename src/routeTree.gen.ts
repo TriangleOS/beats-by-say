@@ -24,8 +24,6 @@ import { Route as SongwriterRouteImport } from './routes/songwriter'
 import { Route as StoresRouteImport } from './routes/stores'
 import { Route as StudioRouteImport } from './routes/studio'
 import { Route as TermsRouteImport } from './routes/terms'
-import { Route as ApiStudioAudioRouteImport } from './routes/api/studio/audio'
-import { Route as ApiPublicStudioCallbackRouteImport } from './routes/api/public/studio/callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -102,16 +100,6 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiStudioAudioRoute = ApiStudioAudioRouteImport.update({
-  id: '/api/studio/audio',
-  path: '/api/studio/audio',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicStudioCallbackRoute = ApiPublicStudioCallbackRouteImport.update({
-  id: '/api/public/studio/callback',
-  path: '/api/public/studio/callback',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -129,8 +117,6 @@ export interface FileRoutesByFullPath {
   '/stores': typeof StoresRoute
   '/studio': typeof StudioRoute
   '/terms': typeof TermsRoute
-  '/api/studio/audio': typeof ApiStudioAudioRoute
-  '/api/public/studio/callback': typeof ApiPublicStudioCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -148,8 +134,6 @@ export interface FileRoutesByTo {
   '/stores': typeof StoresRoute
   '/studio': typeof StudioRoute
   '/terms': typeof TermsRoute
-  '/api/studio/audio': typeof ApiStudioAudioRoute
-  '/api/public/studio/callback': typeof ApiPublicStudioCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -168,8 +152,6 @@ export interface FileRoutesById {
   '/stores': typeof StoresRoute
   '/studio': typeof StudioRoute
   '/terms': typeof TermsRoute
-  '/api/studio/audio': typeof ApiStudioAudioRoute
-  '/api/public/studio/callback': typeof ApiPublicStudioCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -189,8 +171,6 @@ export interface FileRouteTypes {
     | '/stores'
     | '/studio'
     | '/terms'
-    | '/api/studio/audio'
-    | '/api/public/studio/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -208,8 +188,6 @@ export interface FileRouteTypes {
     | '/stores'
     | '/studio'
     | '/terms'
-    | '/api/studio/audio'
-    | '/api/public/studio/callback'
   id:
     | '__root__'
     | '/'
@@ -227,8 +205,6 @@ export interface FileRouteTypes {
     | '/stores'
     | '/studio'
     | '/terms'
-    | '/api/studio/audio'
-    | '/api/public/studio/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -247,8 +223,6 @@ export interface RootRouteChildren {
   StoresRoute: typeof StoresRoute
   StudioRoute: typeof StudioRoute
   TermsRoute: typeof TermsRoute
-  ApiStudioAudioRoute: typeof ApiStudioAudioRoute
-  ApiPublicStudioCallbackRoute: typeof ApiPublicStudioCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -358,20 +332,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/studio/audio': {
-      id: '/api/studio/audio'
-      path: '/api/studio/audio'
-      fullPath: '/api/studio/audio'
-      preLoaderRoute: typeof ApiStudioAudioRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/studio/callback': {
-      id: '/api/public/studio/callback'
-      path: '/api/public/studio/callback'
-      fullPath: '/api/public/studio/callback'
-      preLoaderRoute: typeof ApiPublicStudioCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -391,8 +351,6 @@ const rootRouteChildren: RootRouteChildren = {
   StoresRoute: StoresRoute,
   StudioRoute: StudioRoute,
   TermsRoute: TermsRoute,
-  ApiStudioAudioRoute: ApiStudioAudioRoute,
-  ApiPublicStudioCallbackRoute: ApiPublicStudioCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

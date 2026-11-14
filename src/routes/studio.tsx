@@ -18,7 +18,7 @@ import {
 } from "@/lib/render";
 import { SayMasterPanel } from "@/components/SayMasterPanel";
 import { StudioEnginePanel } from "@/components/StudioEnginePanel";
-import { startStudioBeat, studioAvailable } from "@/lib/studio.functions";
+import { engineReady } from "@/lib/studio-engine";
 import { presetForGenre } from "@/lib/saymaster/presets";
 import { encodeWav } from "@/lib/saymaster/wav";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,8 +46,7 @@ export const Route = createFileRoute("/studio")({
   component: Studio,
 });
 
-/** Saved beats made with the studio engine carry its task id so the takes can be reopened. */
-type SavedBeat = { id: string; prompt: string; spec: BeatSpec & { studioTaskId?: string } };
+type SavedBeat = { id: string; prompt: string; spec: BeatSpec };
 type Engine = "studio" | "synth";
 
 const IDEAS = [
@@ -59,8 +58,6 @@ const IDEAS = [
 
 function Studio() {
   const generate = useServerFn(generateBeat);
-  const startStudio = useServerFn(startStudioBeat);
-  const studioCheck = useServerFn(studioAvailable);
   const { user, session } = useAuth();
 
   const [prompt, setPrompt] = useState("");
@@ -71,9 +68,8 @@ function Studio() {
   const [step, setStep] = useState(-1);
   const [library, setLibrary] = useState<SavedBeat[]>([]);
   const [exporting, setExporting] = useState<"wav" | "stems" | null>(null);
-  const [studioOn, setStudioOn] = useState(false);
   const [engine, setEngine] = useState<Engine>("studio");
-  const [studioTask, setStudioTask] = useState<string | null>(null);
+  const [studioJob, setStudioJob] = useState<{ id: number; prompt: string } | null>(null);
 
   const playerRef = useRef<BeatPlayer | null>(null);
   const stopListeningRef = useRef<(() => void) | null>(null);
@@ -81,10 +77,9 @@ function Studio() {
   useEffect(() => () => playerRef.current?.stop(), []);
 
   useEffect(() => {
-    studioCheck()
-      .then((r) => setStudioOn(r.enabled))
-      .catch(() => setStudioOn(false));
-  }, [studioCheck]);
+    // Wakes the engine Space if it is asleep, so it is ready by the time the beat sheet is written.
+    void engineReady();
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -123,21 +118,8 @@ function Studio() {
     try {
       const result = await generate({ data: { prompt: text.trim(), token: session.access_token } });
       setSpec(result.spec);
-      setStudioTask(null);
-      let studioTaskId: string | undefined;
-      if (studioOn && engine === "studio") {
-        try {
-          const started = await startStudio({
-            data: { prompt: text.trim(), token: session.access_token, spec: result.spec },
-          });
-          studioTaskId = started.taskId;
-          setStudioTask(started.taskId);
-        } catch (error) {
-          toast.error(
-            `${error instanceof Error ? error.message : "The studio engine is unavailable."} The synth version is ready below.`,
-          );
-        }
-      }
+      const studio = engine === "studio";
+      setStudioJob(studio ? { id: Date.now(), prompt: text.trim() } : null);
       const { error } = await supabase.from("beatsbysay_beats").insert({
         user_id: user.id,
         title: result.spec.title,
@@ -146,14 +128,12 @@ function Studio() {
         music_key: result.spec.key,
         mood: result.spec.mood,
         description: result.spec.description,
-        spec: JSON.parse(
-          JSON.stringify({ ...result.spec, ...(studioTaskId ? { studioTaskId } : {}) }),
-        ),
+        spec: JSON.parse(JSON.stringify(result.spec)),
       });
       if (error) toast.error(`Made the beat, but couldn't save it: ${error.message}`);
       else await loadLibrary();
       toast.success(
-        studioTaskId
+        studio
           ? `"${result.spec.title}": the sketch is ready, the studio takes are recording.`
           : `"${result.spec.title}" is ready.`,
       );
@@ -269,7 +249,7 @@ function Studio() {
                   )}
                   {loading ? "Building..." : "Generate beat"}
                 </Button>
-                {studioOn && (
+                {
                   <div
                     className="flex rounded-sm border border-border text-xs"
                     role="radiogroup"
@@ -293,7 +273,7 @@ function Studio() {
                       </button>
                     ))}
                   </div>
-                )}
+                }
                 {IDEAS.map((idea) => (
                   <Button
                     key={idea}
@@ -417,18 +397,11 @@ function Studio() {
           </section>
         )}
 
-        {spec && studioTask && session && (
-          <StudioEnginePanel
-            taskId={studioTask}
-            title={spec.title}
-            token={session.access_token}
-            preset={presetForGenre(spec.genre)}
-          />
-        )}
+        {spec && studioJob && <StudioEnginePanel job={studioJob} spec={spec} />}
 
         {spec && (
           <SayMasterPanel
-            title={studioTask ? "Master the synth sketch" : "Studio-quality master"}
+            title={studioJob ? "Master the synth sketch" : "Studio-quality master"}
             description="Each part of the beat is processed on its own (punchier drums, a mono low end that still reads on phone speakers, cleaner chords), then mixed with room left for your vocal and mastered with a true-peak limiter. You get a vocal-ready beat to record over, a clean version, the processed stems and a measurement report."
             action="Master this beat"
             defaultPreset={presetForGenre(spec.genre)}
@@ -470,7 +443,7 @@ function Studio() {
                       type="button"
                       onClick={() => {
                         setSpec(item.spec);
-                        setStudioTask(item.spec.studioTaskId ?? null);
+                        setStudioJob(null);
                         void togglePlay(item.spec);
                       }}
                       variant="outline"

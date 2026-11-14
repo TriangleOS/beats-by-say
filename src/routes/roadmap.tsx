@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { studioAvailable } from "@/lib/studio.functions";
 
 export const Route = createFileRoute("/roadmap")({
   head: () => ({
@@ -8,7 +7,6 @@ export const Route = createFileRoute("/roadmap")({
       { name: "description", content: "What works on Beats by Say today, and what is planned." },
     ],
   }),
-  loader: () => studioAvailable().catch(() => ({ enabled: false })),
   component: Roadmap,
 });
 
@@ -47,13 +45,12 @@ const PLANNED = [
 
 const STUDIO_ENGINE = [
   "Studio engine",
-  "Full recorded instrumentals from Suno (through sunoapi.org) instead of the browser synths, two takes per brief, split into instrument stems and mixed and mastered by SayMaster. Up to 5 a day.",
+  "Full recorded instrumentals from ACE-Step 1.5 (open source) on free Hugging Face GPUs, two takes per brief, split into stems (HT-Demucs) and mixed and mastered by SayMaster. Free GPU time is limited per connection each day.",
 ] as const;
 
 function Roadmap() {
-  const { enabled } = Route.useLoaderData();
-  const available = enabled ? [...AVAILABLE, STUDIO_ENGINE] : AVAILABLE;
-  const planned = enabled ? PLANNED : [...PLANNED, STUDIO_ENGINE];
+  const available = [...AVAILABLE, STUDIO_ENGINE];
+  const planned = PLANNED;
   return (
     <div className="mx-auto max-w-5xl px-4 py-12 pb-24 sm:px-6">
       <p className="section-label">Roadmap</p>

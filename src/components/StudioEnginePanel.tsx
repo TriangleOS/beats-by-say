@@ -1,23 +1,24 @@
-import { useEffect, useRef, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
-import { Download, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Download, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SayMasterPanel } from "@/components/SayMasterPanel";
+import type { BeatSpec } from "@/lib/beat-spec";
 import { MASTER_RATE, saveBlob, slugify } from "@/lib/render";
 import type { Stereo } from "@/lib/saymaster/dsp";
-import type { PresetName } from "@/lib/saymaster/presets";
 import type { RoleStems } from "@/lib/saymaster/production";
-import { startStudioStems, studioBeatStatus, studioStemStatus } from "@/lib/studio.functions";
-
-type Track = { id: string; audioUrl: string; title: string; duration: number | null };
-
-const proxied = (url: string) => `/api/studio/audio?u=${encodeURIComponent(url)}`;
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+import {
+  LENGTHS,
+  engineBrief,
+  generateTakes,
+  separateTake,
+  takesFor,
+  type Take,
+} from "@/lib/studio-engine";
 
 async function fetchAudio(url: string): Promise<Blob> {
-  const res = await fetch(proxied(url));
-  if (!res.ok) throw new Error("Couldn't download the audio.");
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Couldn't download the audio from the studio engine.");
   return res.blob();
 }
 
@@ -36,100 +37,70 @@ function add(a: Stereo | undefined, b: Stereo): Stereo {
 }
 
 /**
- * The studio engine's takes for one brief: the model records two full instrumentals, the artist picks one,
- * and SayMaster splits it into instrument stems, mixes them with room for the vocal and masters it.
+ * Recorded-quality takes for one brief from the free studio engine (ACE-Step 1.5 on Hugging Face), then
+ * stems (HT-Demucs) and SayMaster's mix and master, all without an account or a paid key.
  */
 export function StudioEnginePanel({
-  taskId,
-  title,
-  token,
-  preset,
+  job,
+  spec,
 }: {
-  taskId: string;
-  title: string;
-  token: string;
-  preset: PresetName;
+  job: { id: number; prompt: string };
+  spec: BeatSpec;
 }) {
-  const beatStatus = useServerFn(studioBeatStatus);
-  const stemStart = useServerFn(startStudioStems);
-  const stemStatus = useServerFn(studioStemStatus);
-
-  const [tracks, setTracks] = useState<Track[]>([]);
-  const [state, setState] = useState<"pending" | "partial" | "done" | "failed">("pending");
+  const [seconds, setSeconds] = useState<number>(60);
+  const [takes, setTakes] = useState<Take[]>([]);
   const [chosen, setChosen] = useState<string | null>(null);
-  const [elapsed, setElapsed] = useState(0);
-  const tokenRef = useRef(token);
-  tokenRef.current = token;
+  const [status, setStatus] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+  const brief = engineBrief(job.prompt, spec);
+
+  async function record(length = seconds) {
+    setBusy(true);
+    setFailed(null);
+    setTakes([]);
+    setChosen(null);
+    setStatus("Connecting to the studio engine");
+    try {
+      const out = await generateTakes(brief, length, setStatus);
+      if (!out.length) throw new Error("The studio engine returned no audio.");
+      setTakes(out);
+      setChosen(out[0]!.url);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "The studio engine is unavailable.";
+      setFailed(msg);
+      toast.error(msg);
+    } finally {
+      setBusy(false);
+      setStatus("");
+    }
+  }
 
   useEffect(() => {
-    let live = true;
-    setTracks([]);
-    setState("pending");
-    setChosen(null);
-    const started = Date.now();
-    (async () => {
-      // Instrumentals usually take one to three minutes; give up after eight.
-      while (live && Date.now() - started < 8 * 60_000) {
-        try {
-          const r = await beatStatus({ data: { token: tokenRef.current, taskId } });
-          if (!live) return;
-          setTracks(r.tracks);
-          setState(r.state);
-          if (r.tracks[0]) setChosen((c) => c ?? r.tracks[0]!.id);
-          if (r.state === "failed") {
-            toast.error(`The studio engine couldn't make this one: ${r.error ?? "unknown error"}`);
-            return;
-          }
-          if (r.state === "done") return;
-        } catch (e) {
-          if (!live) return;
-          toast.error(e instanceof Error ? e.message : "Couldn't check the studio engine.");
-          setState("failed");
-          return;
-        }
-        await wait(6000);
-        if (live) setElapsed(Math.round((Date.now() - started) / 1000));
-      }
-      if (live && Date.now() - started >= 8 * 60_000) {
-        setState("failed");
-        toast.error("The studio engine is taking too long. Try again or use the synth engine.");
-      }
-    })();
-    return () => {
-      live = false;
-    };
-  }, [taskId, beatStatus]);
+    void record();
+    // A new brief starts a new recording; changing the length waits for "Record again".
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job.id]);
 
-  const track = tracks.find((t) => t.id === chosen) ?? null;
+  const take = takes.find((t) => t.url === chosen) ?? null;
 
   async function stems(onStage: (s: string) => void): Promise<RoleStems | null> {
-    if (!track) return null;
+    if (!take?.id) return null;
     try {
-      onStage("Splitting into instrument stems");
-      const { stemTaskId } = await stemStart({
-        data: { token: tokenRef.current, taskId, audioId: track.id },
-      });
-      const started = Date.now();
-      while (Date.now() - started < 6 * 60_000) {
-        const r = await stemStatus({ data: { token: tokenRef.current, stemTaskId } });
-        if (r.state === "failed") throw new Error(r.error ?? "stem split failed");
-        if (r.state === "done" && r.stems.length) {
-          const out: RoleStems = {};
-          let i = 0;
-          for (const s of r.stems) {
-            onStage(`Downloading stems (${++i}/${r.stems.length})`);
-            const audio = await decode(await fetchAudio(s.url), `${s.name}.mp3`);
-            out[s.role] = add(out[s.role], audio);
-          }
-          return out;
-        }
-        onStage(`Splitting into instrument stems (${Math.round((Date.now() - started) / 1000)}s)`);
-        await wait(6000);
+      onStage("Splitting into stems");
+      const parts = await separateTake(take.id, (s) =>
+        onStage(`Splitting into stems: ${s.toLowerCase()}`),
+      );
+      const out: RoleStems = {};
+      let i = 0;
+      for (const p of parts) {
+        onStage(`Downloading stems (${++i}/${parts.length})`);
+        out[p.role] = add(out[p.role], await decode(await fetchAudio(p.url), `${p.source}.flac`));
       }
-      throw new Error("stem split took too long");
+      return Object.keys(out).length ? out : null;
     } catch (e) {
       toast.message(
-        `Mastering the full mix instead of stems (${e instanceof Error ? e.message : "stems unavailable"}).`,
+        `Mastering the full take instead of stems: ${e instanceof Error ? e.message : "stems unavailable"}`,
       );
       return null;
     }
@@ -140,38 +111,60 @@ export function StudioEnginePanel({
       <p className="section-label">Studio engine</p>
       <h2 className="mt-2 text-2xl">Recorded-quality takes</h2>
       <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-        Suno (a music model, reached through sunoapi.org) records full instrumentals from your brief
-        (two takes, usually ready in one to three minutes). Pick a take, then SayMaster splits it
-        into instrument stems, mixes them with room for your vocal and masters it.
+        ACE-Step 1.5, an open-source music model, records full instrumentals from your brief on free
+        Hugging Face GPUs. Pick a take, and SayMaster splits it into stems (HT-Demucs), mixes them
+        with room for your vocal and masters it. Free GPU time is limited per connection each day;
+        the synth sketch is always available.
       </p>
 
-      {state !== "failed" && !tracks.length && (
+      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-muted-foreground">Length</span>
+        {LENGTHS.map((s) => (
+          <button
+            key={s}
+            type="button"
+            disabled={busy}
+            onClick={() => setSeconds(s)}
+            className={`rounded-sm border px-3 py-1.5 ${seconds === s ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}
+          >
+            {s}s{takesFor(s) === 1 ? " · 1 take" : ""}
+          </button>
+        ))}
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={busy}
+          onClick={() => void record()}
+        >
+          <RefreshCw className="h-3.5 w-3.5" /> Record again
+        </Button>
+      </div>
+
+      {busy && (
         <p className="mt-5 flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Recording your takes
-          {elapsed ? ` (${elapsed}s)` : ""}...
+          <Loader2 className="h-4 w-4 animate-spin" /> {status || "Recording"}...
         </p>
       )}
+      {failed && !busy && <p className="mt-5 text-sm text-destructive">{failed}</p>}
 
-      {tracks.length > 0 && (
+      {takes.length > 0 && (
         <div className="mt-5 grid gap-3 md:grid-cols-2">
-          {tracks.map((t, i) => (
+          {takes.map((t, i) => (
             <label
-              key={t.id}
-              className={`cursor-pointer border p-4 ${chosen === t.id ? "border-primary bg-primary/5" : "border-border"}`}
+              key={t.url}
+              className={`cursor-pointer border p-4 ${chosen === t.url ? "border-primary bg-primary/5" : "border-border"}`}
             >
               <span className="flex items-center gap-2 text-sm">
                 <input
                   type="radio"
                   name="studio-take"
-                  checked={chosen === t.id}
-                  onChange={() => setChosen(t.id)}
+                  checked={chosen === t.url}
+                  onChange={() => setChosen(t.url)}
                 />
                 Take {i + 1}
-                {t.duration
-                  ? ` · ${Math.floor(t.duration / 60)}:${String(Math.round(t.duration % 60)).padStart(2, "0")}`
-                  : ""}
               </span>
-              <audio className="mt-3 w-full" controls preload="none" src={proxied(t.audioUrl)} />
+              <audio className="mt-3 w-full" controls preload="metadata" src={t.url} />
               <Button
                 type="button"
                 variant="outline"
@@ -179,40 +172,35 @@ export function StudioEnginePanel({
                 className="mt-3"
                 onClick={async () => {
                   try {
-                    saveBlob(await fetchAudio(t.audioUrl), `${slugify(title)}-take-${i + 1}.mp3`);
+                    saveBlob(await fetchAudio(t.url), `${slugify(spec.title)}-take-${i + 1}.flac`);
                   } catch (e) {
                     toast.error(e instanceof Error ? e.message : "Download failed.");
                   }
                 }}
               >
-                <Download className="h-3.5 w-3.5" /> Download take
+                <Download className="h-3.5 w-3.5" /> Download take (FLAC)
               </Button>
             </label>
           ))}
-          {state === "partial" && (
-            <p className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Second take still recording...
-            </p>
-          )}
         </div>
       )}
 
-      {track && (
+      {take && (
         <SayMasterPanel
           title="Stem mix and master"
           description="The chosen take is split into drums, bass and music stems. Each is processed on its own, mixed with a gap left for your vocal and mastered with a true-peak limiter. You get a vocal-ready beat, a clean version, the stems and a measurement report."
           action="Mix and master this take"
-          defaultPreset={preset}
+          defaultPreset={brief.preset}
           prepare={async (p, onStage) => {
             onStage("Downloading the take");
-            const original = await fetchAudio(track.audioUrl);
-            const mix = await decode(original, "take.mp3");
+            const original = await fetchAudio(take.url);
+            const mix = await decode(original, "take.flac");
             const split = await stems(onStage);
             return {
               before: original,
               job: {
                 kind: "beat",
-                name: slugify(title),
+                name: slugify(spec.title),
                 sr: MASTER_RATE,
                 preset: p,
                 stems: split ?? { mix },
