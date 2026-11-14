@@ -14,8 +14,15 @@ Beats by Say, voice-first beat making for recording artists, part of Triangle OS
   `AI` binding), behind a signed-in check
   (`src/lib/user.server.ts`). Audio is synthesised and rendered in the browser (`src/lib/engine/dsp.ts`).
   Voice briefs use the browser's speech recognition (`src/lib/speech.ts`).
+- Studio engine (`src/lib/studio.server.ts`, `studio.functions.ts`, `StudioEnginePanel.tsx`): recorded
+  instrumentals from Suno through sunoapi.org (as in TriangleOS/sunoapi), `split_stem` into instrument stems,
+  then SayMaster `produceBeat`. Each server call is one short request and the browser polls (10 ms CPU).
+  It is off unless the Worker has `SUNOAPI_KEY`; jobs are logged in `beatsbysay_studio_jobs` (artists can
+  only poll their own tasks; `STUDIO_DAILY_LIMIT`, default 5). Audio is fetched through `/api/studio/audio`,
+  which only allows the service's audio hosts. The synth engine stays as the free, unlimited sketch.
 - Say plainly what works: studio, voice briefs, songwriter, WAV/stems downloads and saved beats are free.
-  Marketplace, distribution, royalties and a recorded-sound engine are planned. No "keep 100%", store counts,
+  Marketplace, distribution and royalties are planned; the studio engine is listed as available only
+  while `SUNOAPI_KEY` is set (the roadmap checks). No "keep 100%", store counts,
   "no AI stigma", prices or fake partners. No "data never leaves the UK". Operator wording:
   "Finsec Associates Limited, trading as TriangleOS".
 - SayMaster (`src/lib/saymaster/`) is the mixing and mastering engine: pure TypeScript on Float32Arrays, run in a
@@ -32,7 +39,7 @@ Beats by Say, voice-first beat making for recording artists, part of Triangle OS
 
 Same as Metarial and Lawbooks: deploys as the Cloudflare Worker `beatsbysay` (`npm run build`, then
 `npx wrangler deploy`), built by Cloudflare Workers Builds from this repo on every push to main. No GitHub
-repository secrets. Server secrets (optional `GEMINI_API_KEY`, `TRIANGLE_LLM_URL` and `TRIANGLE_LLM_API_KEY`) are set in
+repository secrets. Server secrets (optional `GEMINI_API_KEY`, `TRIANGLE_LLM_URL`, `TRIANGLE_LLM_API_KEY` and `SUNOAPI_KEY`) are set in
 the Worker's settings in Cloudflare, never in the repo; without them the site uses Workers AI. The Supabase URL and publishable key are public and
 come from `.env` at build time. The custom domain is attached in the Worker's Domains & Routes settings.
 
