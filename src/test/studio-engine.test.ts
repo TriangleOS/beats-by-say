@@ -24,10 +24,10 @@ describe("studio engine", () => {
   });
 
   it("keeps GPU requests inside a visitor's free daily allowance", () => {
-    expect(gpuRequest(60, 2)).toBeLessThanOrEqual(115);
+    expect(gpuRequest(60, 2)).toBe(42);
     expect(takesFor(60)).toBe(2);
     expect(takesFor(120)).toBe(1);
-    for (const s of [30, 60, 90, 120]) expect(gpuRequest(s, takesFor(s))).toBeLessThanOrEqual(120);
+    for (const s of [30, 60, 90, 120]) expect(gpuRequest(s, takesFor(s))).toBeLessThanOrEqual(60);
   });
 
   it("parses Gradio queue events across chunk boundaries", () => {

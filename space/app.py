@@ -76,7 +76,8 @@ def _clean(old_seconds: int = 3 * 3600) -> None:
 
 
 def _generate_seconds(caption, bpm, key, seconds, takes, plan, seed):
-    return int(min(150, 35 + float(seconds) * 0.45 * max(1, int(takes)) + (25 if plan else 0)))
+    # Measured on ZeroGPU: about 5 s of planning and 1 s of diffusion and decoding per 30 s take. 2-3x headroom.
+    return int(min(120, 12 + float(seconds) * max(1, int(takes)) * (0.05 + (0.2 if plan else 0))))
 
 
 @spaces.GPU(duration=_generate_seconds)
@@ -127,7 +128,7 @@ def generate(caption: str, bpm: float, key: str, seconds: float, takes: int, pla
 
 
 def _separate_seconds(take_id: str):
-    return 40
+    return 25
 
 
 @spaces.GPU(duration=_separate_seconds)

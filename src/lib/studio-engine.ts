@@ -55,12 +55,13 @@ export function engineBrief(
 
 /**
  * Seconds of GPU the Space asks for (mirrors `_generate_seconds` in space/app.py). Visitors without a
- * Hugging Face account have about 120 s a day, so longer beats get one take instead of two.
+ * Hugging Face account have a few minutes a day, so requests stay small and the longest beats get one take.
  */
 export function gpuRequest(seconds: number, takes: number, plan = true) {
-  return Math.min(150, Math.floor(35 + seconds * 0.45 * Math.max(1, takes) + (plan ? 25 : 0)));
+  // Measured: about 5 s of planning and 1 s of diffusion and decoding per 30 s take; 2-3x headroom.
+  return Math.min(120, Math.floor(12 + seconds * Math.max(1, takes) * (0.05 + (plan ? 0.2 : 0))));
 }
-export function takesFor(seconds: number, budget = 115) {
+export function takesFor(seconds: number, budget = 60) {
   return gpuRequest(seconds, 2) <= budget ? 2 : 1;
 }
 export const LENGTHS = [30, 60, 90, 120] as const;
