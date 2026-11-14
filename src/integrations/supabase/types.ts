@@ -15,16 +15,6 @@ type BeatRow = {
   created_at: string;
 };
 
-type StudioJobRow = {
-  id: string;
-  user_id: string;
-  task_id: string;
-  kind: "generate" | "stems";
-  parent_task_id: string | null;
-  prompt: string;
-  created_at: string;
-};
-
 export type Database = {
   public: {
     Tables: {
@@ -33,13 +23,6 @@ export type Database = {
         Insert: Omit<BeatRow, "id" | "created_at" | "prompt" | "bpm" | "music_key" | "mood" | "description"> &
           Partial<Pick<BeatRow, "id" | "created_at" | "prompt" | "bpm" | "music_key" | "mood" | "description">>;
         Update: Partial<BeatRow>;
-        Relationships: [];
-      };
-      beatsbysay_studio_jobs: {
-        Row: StudioJobRow;
-        Insert: Omit<StudioJobRow, "id" | "created_at" | "parent_task_id" | "prompt"> &
-          Partial<Pick<StudioJobRow, "id" | "created_at" | "parent_task_id" | "prompt">>;
-        Update: never;
         Relationships: [];
       };
     };
