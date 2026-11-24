@@ -1,0 +1,60 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./node_modules/**)",
+      "Read(./**/node_modules/**)",
+      "Read(./dist/**)",
+      "Read(./build/**)",
+      "Read(./.next/**)",
+      "Read(./out/**)",
+      "Read(./coverage/**)",
+      "Read(./target/**)",
+      "Read(./package-lock.json)",
+      "Read(./pnpm-lock.yaml)",
+      "Read(./yarn.lock)",
+      "Read(./bun.lockb)",
+      "Read(./**/*.min.js)",
+      "Read(./**/*.map)",
+      "Read(./graphify-out/cache/**)",
+      "Read(./.observer/*.jsonl)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.observer/loop_guard.py\""
+          }
+        ]
+      }
+    ]
+  },
+  "extraKnownMarketplaces": {
+    "context-mode": {
+      "source": {
+        "source": "github",
+        "repo": "TriangleOS/context-mode"
+      }
+    },
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "TriangleOS/ponytail"
+      }
+    },
+    "claude-task-observer": {
+      "source": {
+        "source": "github",
+        "repo": "TriangleOS/claude-task-observer"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "context-mode@context-mode": true,
+    "ponytail@ponytail": true,
+    "task-observer@claude-task-observer": true
+  }
+}

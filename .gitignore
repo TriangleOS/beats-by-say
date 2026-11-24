@@ -30,3 +30,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# claude-token-kit
+graphify-out/cache/
+.observer/*.jsonl
+.observer/*.log
+.observer/*.json
+.claude/session/
