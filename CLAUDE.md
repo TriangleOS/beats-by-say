@@ -51,3 +51,17 @@ npm run build        # also regenerates src/routeTree.gen.ts
 npx tsc --noEmit
 npm test
 ```
+
+<!-- token-kit:start (managed by TriangleOS/claude-token-kit; edit outside these markers) -->
+## Token budget rules
+
+- Answer in the fewest words that are complete. No preamble, no recap of what you did, no restating the question.
+- Find before you read: if `graphify-out/graph.json` exists, use `graphify query "<question>"`, `graphify explain "<name>"` or `graphify affected "<name>"` before grep or opening files.
+- Read only what you need: line ranges over whole files; never re-read a file you already read and did not change.
+- Never open `node_modules`, build output, lockfiles, minified files or generated graphs; use `head`, `wc`, `jq` or a short script on large data instead of reading it.
+- Commands with long output: prefer quiet flags (`-q`, `--silent`, `--porcelain`) and pipe to `tail`/`grep`. Builds and test suites over ~1 minute: run them with task-observer (`observe.py run`/`wait`), don't poll logs.
+- Write the smallest correct change; reuse existing code before adding a dependency or a new file. Never skip validation, error handling or security to save tokens.
+- If the same fix fails twice, stop and explain instead of retrying.
+- Use a subagent for broad exploration so only its conclusion lands in this context.
+- At the end of a long task, suggest `/save`; for an unrelated new task, suggest `/clear`.
+<!-- token-kit:end -->
